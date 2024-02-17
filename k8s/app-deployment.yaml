@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-kube-order-service
+spec:
+  selector:
+    matchLabels:
+      app: sample-kube-order-service
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: sample-kube-order-service
+    spec:
+      containers:
+        - name: sample-kube-order-service
+          image: sample-kube-order-service:latest
+          # First check local docker image, if not then from dockerhub
+          # By default, the kubelet tries to pull each image from the specified registry.
+          #   However, if the imagePullPolicy property of the container is set to IfNotPresent or Never,
+          #   then a local image is used (preferentially or exclusively, respectively).
+          imagePullPolicy: IfNotPresent # must include this when using local image
+          ports:
+            - containerPort: 9090
+          env:   # Setting Environmental Variables
+            - name: DB_HOST   # Setting Database host address from configMap
+              valueFrom :
+                configMapKeyRef :
+                  name : db-config
+                  key :  host
+
+            - name: DB_NAME  # Setting Database name from configMap
+              valueFrom :
+                configMapKeyRef :
+                  name : db-config
+                  key :  dbName
+
+            - name: DB_USERNAME  # Setting Database username from Secret
+              valueFrom :
+                secretKeyRef :
+                  name : postgresql-secrets
+                  key :  username
+
+            - name: DB_PASSWORD # Setting Database password from Secret
+              valueFrom :
+                secretKeyRef :
+                  name : postgresql-secrets
+                  key :  password
+
+---
+
+apiVersion: v1 # Kubernetes API version
+kind: Service # Kubernetes resource kind we are creating
+metadata: # Metadata of the resource kind we are creating
+  name: sample-kube-order-service-svc
+spec:
+  selector:
+    app: sample-kube-order-service
+  ports:
+    - protocol: "TCP"
+      port: 9090 # The port that the service is running on in the cluster
+      targetPort: 9090 # The port exposed by the service
+  type: NodePort # type of the service.
